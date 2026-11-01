@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta
+      name="description"
+      content="OrgMind builds a living digital twin of your organization: an evolving knowledge graph, evidence-backed reasoning and proactive intelligence."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>OrgMind</title>
+    <script>
+      // Apply the saved theme before first paint so there is no flash.
+      try {
+        var saved = localStorage.getItem('orgmind.theme');
+        if (saved === 'light' || saved === 'dark') {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

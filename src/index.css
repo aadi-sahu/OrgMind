@@ -1,0 +1,264 @@
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ---------------------------------------------------------------------------
+ * Design tokens. Dark is the primary theme; light is an alternative selected
+ * from the same structure. Components use these through Tailwind utilities
+ * (bg-surface, text-ink-2, border-line, ...) and never hard-code colours.
+ * ------------------------------------------------------------------------ */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0c0d0f;
+  --surface: #131416;
+  --surface-2: #1a1b1e;
+  --surface-3: #232428;
+  --line: #222327;
+  --line-strong: #303237;
+
+  --ink: #edeef0;
+  --ink-2: #a8abb3;
+  --ink-3: #80838c;
+
+  --accent: #6ea0f5;
+  --accent-wash: rgb(110 160 245 / 0.12);
+  --primary-bg: #edeef0;
+  --primary-bg-hover: #ffffff;
+  --primary-fg: #0c0d0f;
+
+  /* Status. Always paired with an icon and a label, never colour alone. */
+  --good: #2fb344;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #e5534b;
+  --info: #80838c;
+
+  /* Entity identity: validated categorical slots, in fixed order. */
+  --e-person: #3987e5;
+  --e-team: #d95926;
+  --e-project: #199e70;
+  --e-service: #c98500;
+  --e-repository: #d55181;
+  --e-decision: #9085e9;
+
+  /* Chart chrome */
+  --grid: #222327;
+  --axis: #303237;
+  --shadow-pop: 0 8px 28px rgb(0 0 0 / 0.5), 0 0 0 1px var(--line-strong);
+  --scrim: rgb(5 6 7 / 0.6);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f6f7;
+  --surface: #ffffff;
+  --surface-2: #f2f2f4;
+  --surface-3: #e8e8eb;
+  --line: #e6e6ea;
+  --line-strong: #d3d3d9;
+
+  --ink: #15161a;
+  --ink-2: #51535b;
+  --ink-3: #6c6e77;
+
+  --accent: #2563d4;
+  --accent-wash: rgb(37 99 212 / 0.09);
+  --primary-bg: #15161a;
+  --primary-bg-hover: #000000;
+  --primary-fg: #ffffff;
+
+  --good: #15803d;
+  --warning: #c98a00;
+  --serious: #d4622f;
+  --critical: #d03b3b;
+  --info: #6c6e77;
+
+  --e-person: #2a78d6;
+  --e-team: #eb6834;
+  --e-project: #1baf7a;
+  --e-service: #eda100;
+  --e-repository: #e87ba4;
+  --e-decision: #6250d6;
+
+  --grid: #ececef;
+  --axis: #d3d3d9;
+  --shadow-pop: 0 8px 28px rgb(20 22 28 / 0.14), 0 0 0 1px var(--line-strong);
+  --scrim: rgb(20 22 28 / 0.28);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-wash: var(--accent-wash);
+  --color-primary-bg: var(--primary-bg);
+  --color-primary-bg-hover: var(--primary-bg-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --color-info: var(--info);
+
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  /* Type scale. UI text is 13px; reading text (assistant answers) is 14px. */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1.125rem;
+  --text-ui: 0.8125rem;
+  --text-ui--line-height: 1.25rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.5rem;
+  --text-title: 0.9375rem;
+  --text-title--line-height: 1.375rem;
+  --text-h1: 1.25rem;
+  --text-h1--line-height: 1.75rem;
+  --text-stat: 1.625rem;
+  --text-stat--line-height: 2rem;
+  --text-hero: 3.5rem;
+  --text-hero--line-height: 3.5rem;
+
+  --shadow-pop: var(--shadow-pop);
+
+  --animate-fade-in: fade-in 140ms ease-out;
+  --animate-pop-in: pop-in 120ms ease-out;
+  --animate-slide-in-right: slide-in-right 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-slide-in-up: slide-in-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-slide-in-left: slide-in-left 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-rise: rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+}
+@keyframes slide-in-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+}
+@keyframes slide-in-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+}
+@keyframes pulse-soft {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-ui);
+    line-height: var(--text-ui--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'ss01' on;
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary {
+    cursor: pointer;
+  }
+
+  /* One visible focus treatment everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: var(--accent-wash);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+@layer utilities {
+  /* A column of numbers that must align vertically. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .skeleton {
+    background: var(--surface-2);
+    border-radius: 4px;
+    animation: pulse-soft 1.6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Recharts draws a focus box on the chart root when clicked; keep keyboard focus only. */
+.recharts-wrapper :focus:not(:focus-visible),
+.recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}
