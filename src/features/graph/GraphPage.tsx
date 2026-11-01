@@ -145,7 +145,8 @@ export default function GraphPage() {
   const isFiltered = activeTypes.size < ENTITY_TYPES.length || relationFilter !== 'all' || depth !== 'all';
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    // Clipped, so that the detail panel sliding in cannot flash a scrollbar on the page.
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Filters: one row above everything they scope */}
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2 md:px-4">
         <GraphSearch nodes={graph?.nodes ?? []} onSelect={selectFromSearch} className="w-full sm:w-56" />
@@ -194,6 +195,13 @@ export default function GraphPage() {
               <div className="flex h-full items-center justify-center" role="status" aria-label="Loading knowledge graph">
                 <Skeleton className="size-40 rounded-full" />
               </div>
+            ) : graph?.nodes.length === 0 ? (
+              <EmptyState
+                className="h-full"
+                icon={<SearchX className="size-4" aria-hidden />}
+                title="The knowledge graph is empty"
+                description="Entities appear here once a connected data source has synced."
+              />
             ) : visibleNodes.length === 0 ? (
               <EmptyState
                 className="h-full"

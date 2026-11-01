@@ -66,18 +66,22 @@ export function HealthPanel({ health, className }: { health?: OrgHealth; classNa
             {signed(health.delta)} in 4 weeks
           </p>
         </div>
-        <div className="min-w-0 flex-1">
-          <Sparkline points={health.trend} label="Health score" height={72} />
-        </div>
+        {health.trend.length > 0 && (
+          <div className="min-w-0 flex-1">
+            <Sparkline points={health.trend} label="Health score" height={72} />
+          </div>
+        )}
       </div>
       <ul className="px-4">
         {health.factors.map((factor) => (
           <FactorRow key={factor.id} factor={factor} />
         ))}
       </ul>
-      <p className="mt-auto border-t border-line px-4 py-3 text-meta text-ink-2">
-        <span className="font-medium text-ink">Lowest: {lowest.label}.</span> {lowest.explanation}
-      </p>
+      {lowest && (
+        <p className="mt-auto border-t border-line px-4 py-3 text-meta text-ink-2">
+          <span className="font-medium text-ink">Lowest: {lowest.label}.</span> {lowest.explanation}
+        </p>
+      )}
     </Panel>
   );
 }

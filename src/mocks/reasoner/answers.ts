@@ -9,9 +9,11 @@ import type {
   Service,
   Team,
 } from '@/api/types';
-import { deployStages, directory, insights } from '../data';
+import { deployStages, directory } from '../data';
 import { daysAgo, minutesAgo } from '../data/time';
+import { currentInsights } from '../demoState';
 import {
+  bySeverity,
   Citations,
   decisionById,
   dependentsOf,
@@ -267,6 +269,7 @@ export function blastRadiusAnswer(service: Service): Plan {
 export function departureAnswer(person: Person): Plan {
   const repos = directory.repositories.filter((r) => r.maintainerIds.includes(person.id));
   const majorRepos = repos.filter((r) => r.topContributorId === person.id);
+  const otherRepos = repos.filter((r) => r.topContributorId !== person.id);
   const singleOwner = majorRepos.filter((r) => r.busFactor === 1);
   const onCall = directory.services.filter((s) => s.onCallId === person.id);
   const led = directory.projects.filter((p) => p.leadId === person.id && p.status !== 'completed');
@@ -312,6 +315,7 @@ export function departureAnswer(person: Person): Plan {
           columns: ['Item', 'Role', 'Exposure'],
           rows: [
             ...majorRepos.map((r) => [{ entityId: r.id }, `Top contributor, ${r.topContributorSharePct}% of commits`, `Bus factor ${r.busFactor}`]),
+            ...otherRepos.map((r) => [{ entityId: r.id }, 'Maintainer', `Bus factor ${r.busFactor}`]),
             ...onCall.map((s) => [{ entityId: s.id }, 'On call', `Tier ${s.tier}, ${dependentsOf(s.id).length} dependents`]),
             ...led.map((p) => [{ entityId: p.id }, 'Project lead', `${p.progressPct}% complete`]),
             ...leadOf.map((t) => [{ entityId: t.id }, 'Team lead', 'People management']),
@@ -374,6 +378,7 @@ export function silosAnswer(): Plan {
   });
   const cites = findings.map((f) => citeEvidence(f, c));
   const critical = findings[0];
+  const ledgerIndex = findings.findIndex((f) => f.id === 'ins-ledger-silo');
 
   return {
     steps: [
@@ -383,7 +388,7 @@ export function silosAnswer(): Plan {
       step('departures', 'Checking planned departures', '1 engineer leaving'),
     ],
     answer: {
-      summary: `${siloRepos.length} of ${directory.repositories.length} repositories have a bus factor of one ${graphCite}. The most urgent is ledger-core: it is Tier 0, and its main author leaves in 14 days ${cites[0] ?? ''}.`,
+      summary: `${siloRepos.length} of ${directory.repositories.length} repositories have a bus factor of one ${graphCite}.${ledgerIndex >= 0 ? ` The most urgent is ledger-core: it is Tier 0, and its main author leaves in 14 days ${cites[ledgerIndex]}.` : ''}`,
       blocks: [
         {
           kind: 'table',
@@ -767,6 +772,53 @@ const CATEGORY_TITLES: Record<InsightCategory, string> = {
   dependency_issue: 'dependency issues',
 };
 
+const CATEGORY_QUESTIONS: Record<InsightCategory, string> = {
+  tech_debt: 'What tech debt do we have?',
+  outdated_docs: 'Which documents are outdated?',
+  knowledge_silo: 'Where are our biggest knowledge silos?',
+  duplicate_work: 'What duplicate work is happening across teams?',
+  deployment_risk: 'What deployment risks do we have?',
+  dependency_issue: 'Do we have any vulnerable dependencies?',
+};
+
+/** One finding in full, for "Ask OrgMind" on that finding. */
+export function findingAnswer(insight: Insight): Plan {
+  const c = new Citations();
+  const cites = citeEvidence(insight, c);
+  const pct = Math.round(insight.confidence * 100);
+  const evidenceCount = insight.evidence.length === 1 ? '1 piece of evidence' : `${insight.evidence.length} pieces of evidence`;
+  const statusNote = insight.status === 'open' ? '' : ` This finding is marked as ${insight.status}.`;
+  const service = insight.entityIds.map((id) => serviceById.get(id)).find((s) => s !== undefined);
+
+  return {
+    steps: [
+      step('finding', 'Reading the finding', `${insight.severity} severity, ${pct}% confidence`),
+      step('evidence', 'Collecting its evidence', evidenceCount),
+      step('owner', 'Resolving the owner', teamName(insight.ownerTeamId)),
+    ],
+    answer: {
+      summary: `${insight.summary} ${cites}${statusNote}`,
+      blocks: [
+        { kind: 'paragraph', text: `Why it matters: ${insight.impact}` },
+        {
+          kind: 'recommendations',
+          title: 'Recommended actions',
+          items: insight.recommendations.map((title) => ({ title })),
+        },
+      ],
+      confidence: pct >= 85 ? 'high' : pct >= 60 ? 'medium' : 'low',
+      confidenceReason: `Detected with ${pct}% confidence from ${evidenceCount}.`,
+      sources: c.sources,
+      entityIds: unique(insight.entityIds),
+      followUps: [
+        ...(service ? [`What breaks if ${service.name} goes down?`, `Who owns ${service.name}?`] : []),
+        CATEGORY_QUESTIONS[insight.category],
+      ],
+      grounded: true,
+    },
+  };
+}
+
 export function categoryAnswer(category: InsightCategory): Plan {
   const findings = insightsByCategory(category);
   const c = new Citations();
@@ -781,7 +833,9 @@ export function categoryAnswer(category: InsightCategory): Plan {
       step('rank', 'Ranking by severity', 'Weighted by service tier'),
     ],
     answer: {
-      summary: `OrgMind found ${findings.length} active ${findings.length === 1 ? 'finding' : 'findings'} for ${label}. The most serious: ${top?.title} ${cites[0] ?? ''}.`,
+      summary: top
+        ? `OrgMind found ${findings.length} active ${findings.length === 1 ? 'finding' : 'findings'} for ${label}. The most serious: ${top.title} ${cites[0]}.`
+        : `OrgMind has no active findings for ${label} right now.`,
       blocks: [
         {
           kind: 'findings',
@@ -795,7 +849,7 @@ export function categoryAnswer(category: InsightCategory): Plan {
         },
       ],
       confidence: 'high',
-      confidenceReason: 'Each finding carries its own evidence and detection confidence.',
+      confidenceReason: top ? 'Each finding carries its own evidence and detection confidence.' : 'Read from the current status of every finding.',
       sources: c.sources,
       entityIds: unique(findings.flatMap((f) => f.entityIds)).slice(0, 8),
       followUps: ['Which projects are at risk?', 'Where are our biggest knowledge silos?', 'Why has deployment time increased?'],
@@ -805,21 +859,20 @@ export function categoryAnswer(category: InsightCategory): Plan {
 }
 
 export function topRisksAnswer(): Plan {
-  const order = { critical: 0, high: 1, medium: 2, low: 3 };
-  const top = insights
-    .filter((i) => i.status === 'open')
-    .sort((a, b) => order[a.severity] - order[b.severity])
-    .slice(0, 5);
+  const open = currentInsights().filter((i) => i.status === 'open');
+  const top = [...open].sort(bySeverity).slice(0, 5);
   const c = new Citations();
   const cites = top.map((f) => citeEvidence(f, c));
 
   return {
     steps: [
-      step('scan', 'Reading all open findings', `${insights.filter((i) => i.status === 'open').length} open`),
+      step('scan', 'Reading all open findings', `${open.length} open`),
       step('rank', 'Ranking by severity and service tier', 'Top five kept'),
     ],
     answer: {
-      summary: `The most severe open finding right now: ${top[0].title} ${cites[0]}. These are the top five.`,
+      summary: top[0]
+        ? `The most severe open finding right now: ${top[0].title} ${cites[0]}.${top.length > 1 ? ` These are the top ${top.length}.` : ''}`
+        : 'No findings are open right now, so nothing stands out as a risk.',
       blocks: [
         {
           kind: 'findings',
@@ -828,7 +881,7 @@ export function topRisksAnswer(): Plan {
         },
       ],
       confidence: 'high',
-      confidenceReason: 'Ranked from existing findings by severity.',
+      confidenceReason: top[0] ? 'Ranked from existing findings by severity.' : 'Read from the current status of every finding.',
       sources: c.sources,
       entityIds: unique(top.flatMap((f) => f.entityIds)).slice(0, 8),
       followUps: ['What happens when Henrik Lindqvist leaves?', 'Which projects are at risk?'],

@@ -2,7 +2,9 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { AXIS_LINE, AXIS_TICK, ChartFrame, ChartTooltipBox, GRID_STROKE, LegendRow } from './ChartParts';
 
 /** Categorical slots, in the validated order. Colour follows the series, not its rank. */
-const SERIES_COLORS = ['var(--e-person)', 'var(--e-team)', 'var(--e-project)', 'var(--e-service)'];
+const SERIES_COLORS = ['var(--e-person)', 'var(--e-team)', 'var(--e-project)', 'var(--e-service)', 'var(--e-repository)', 'var(--e-decision)'];
+/** The number of series comes from the backend, and every one of them needs a colour. */
+const seriesColor = (index: number) => SERIES_COLORS[index % SERIES_COLORS.length];
 
 interface StackedBarChartProps {
   title: string;
@@ -14,7 +16,7 @@ interface StackedBarChartProps {
 }
 
 export function StackedBarChart({ title, unit, xKey, series, data, height = 220 }: StackedBarChartProps) {
-  const legend = series.map((s, i) => ({ key: s.key, label: s.label, color: SERIES_COLORS[i] }));
+  const legend = series.map((s, i) => ({ key: s.key, label: s.label, color: seriesColor(i) }));
 
   const total = (row: Record<string, string | number>) =>
     series.reduce((sum, s) => sum + Number(row[s.key] ?? 0), 0);
@@ -55,7 +57,7 @@ export function StackedBarChart({ title, unit, xKey, series, data, height = 220 
                   key={s.key}
                   dataKey={s.key}
                   stackId="stack"
-                  fill={SERIES_COLORS[i]}
+                  fill={seriesColor(i)}
                   stroke="var(--surface)"
                   strokeWidth={1}
                   radius={i === series.length - 1 ? [4, 4, 0, 0] : 0}

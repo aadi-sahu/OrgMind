@@ -2,13 +2,16 @@ import type {
   Decision,
   EntityType,
   EvidenceItem,
+  Insight,
+  InsightCategory,
   Person,
   Project,
   Repository,
   Service,
   Team,
 } from '@/api/types';
-import { directory, insights } from '../data';
+import { directory } from '../data';
+import { currentInsights } from '../demoState';
 
 export const personById = new Map(directory.people.map((p) => [p.id, p]));
 export const teamById = new Map(directory.teams.map((t) => [t.id, t]));
@@ -110,20 +113,33 @@ export function firstOfType<T extends EntityType>(mentions: Mention[], type: T):
   return mentions.find((mention) => mention.type === type)?.entity as EntityByType[T] | undefined;
 }
 
-/** Open findings that mention an entity, most severe first. */
 const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 } as const;
 
-export function insightsFor(entityIds: string[]) {
-  const ids = new Set(entityIds);
-  return insights
-    .filter((insight) => insight.status !== 'resolved' && insight.entityIds.some((id) => ids.has(id)))
-    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+export const bySeverity = (a: Insight, b: Insight) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity];
+
+/** Findings still needing action, as the user has left them. Resolved and dismissed ones do not count. */
+function activeInsights() {
+  return currentInsights().filter((insight) => insight.status === 'open' || insight.status === 'acknowledged');
 }
 
-export function insightsByCategory(category: (typeof insights)[number]['category']) {
-  return insights
-    .filter((insight) => insight.category === category && insight.status !== 'resolved')
-    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+/** Active findings that mention an entity, most severe first. */
+export function insightsFor(entityIds: string[]) {
+  const ids = new Set(entityIds);
+  return activeInsights()
+    .filter((insight) => insight.entityIds.some((id) => ids.has(id)))
+    .sort(bySeverity);
+}
+
+export function insightsByCategory(category: InsightCategory) {
+  return activeInsights()
+    .filter((insight) => insight.category === category)
+    .sort(bySeverity);
+}
+
+/** The finding with exactly this title, whatever its status, as sent by "Ask OrgMind" on a finding. */
+export function insightWithTitle(question: string) {
+  const title = question.trim().replace(/[.?!]+$/, '').toLowerCase();
+  return currentInsights().find((insight) => insight.title.toLowerCase() === title);
 }
 
 /** Services that depend on `serviceId`, directly or transitively, with hop distance. */

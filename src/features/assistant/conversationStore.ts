@@ -34,7 +34,15 @@ let state: State = { conversations: [], activeId: null };
 let controller: AbortController | null = null;
 const listeners = new Set<() => void>();
 
-const uid = () => crypto.randomUUID();
+// randomUUID only exists in secure contexts, and the app may be opened over plain HTTP, such as on a LAN.
+const uid = () => crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 function setState(next: State) {
   state = next;
@@ -72,6 +80,7 @@ export const conversationActions = {
         : [{ id: conversationId, title: text, turns: [turn] }, ...state.conversations],
     });
 
+    let answered = false;
     try {
       await api.askAssistant({ question: text, conversationId }, (event) => {
         if (event.type === 'step') {
@@ -83,9 +92,12 @@ export const conversationActions = {
             partialSummary: t.partialSummary + event.text,
           }));
         } else {
+          answered = true;
           updateTurn(conversationId, turn.id, (t) => ({ ...t, status: 'done', answer: event.answer }));
         }
       }, abort.signal);
+      // Without this, a stream that closes early would leave the turn busy, with nothing left to stop.
+      if (!answered) throw new Error('The assistant stopped before finishing its answer. Try asking again.');
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         updateTurn(conversationId, turn.id, (t) => (t.status === 'done' ? t : { ...t, status: 'stopped' }));
@@ -111,6 +123,7 @@ export const conversationActions = {
   },
 
   select(id: string) {
+    if (id === state.activeId) return;
     controller?.abort();
     setState({ ...state, activeId: id });
   },
@@ -121,11 +134,5 @@ export const conversationActions = {
 };
 
 export function useConversations() {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    () => state,
-  );
+  return useSyncExternalStore(subscribe, () => state);
 }

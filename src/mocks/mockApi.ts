@@ -1,8 +1,9 @@
 import type { OrgMindApi } from '@/api/contract';
-import type { Insight, InsightStatus, Integration, IntegrationId } from '@/api/types';
+import type { Integration, IntegrationId } from '@/api/types';
 import { buildGraph } from './buildGraph';
 import { buildOverview } from './buildOverview';
 import { activity, directory, engineeringSignals, insights, integrationCatalog, suggestedQuestions } from './data';
+import { currentInsights, resetDemoState, setInsightStatus, setSimulatedAt, simulatedAt } from './demoState';
 import { reason } from './reasoner';
 import { validateSampleData } from './validate';
 
@@ -10,39 +11,10 @@ import { validateSampleData } from './validate';
  * Demo implementation of the API. No network requests are made.
  *
  * Delays exist so that loading states behave as they will with a real backend.
- * Insight status changes and simulated integrations are kept in localStorage,
- * which is why a refresh keeps them.
  */
 
 const graph = buildGraph(directory);
 if (import.meta.env.DEV) validateSampleData(directory, graph, insights, activity);
-
-const STORAGE_KEY = 'orgmind.demo.v1';
-
-interface DemoState {
-  insightStatus: Partial<Record<string, InsightStatus>>;
-  simulated: Partial<Record<IntegrationId, string>>;
-}
-
-function loadState(): DemoState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { insightStatus: {}, simulated: {}, ...(JSON.parse(raw) as Partial<DemoState>) };
-  } catch {
-    // Storage may be blocked or hold invalid data. The demo works without it.
-  }
-  return { insightStatus: {}, simulated: {} };
-}
-
-let state = loadState();
-
-function saveState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Non-fatal: changes last until the page is reloaded.
-  }
-}
 
 function abortError() {
   return new DOMException('The request was aborted.', 'AbortError');
@@ -74,17 +46,13 @@ async function respond<T>(value: () => T, signal?: AbortSignal): Promise<T> {
   return structuredClone(value());
 }
 
-function withStatus(insight: Insight): Insight {
-  return { ...insight, status: state.insightStatus[insight.id] ?? insight.status };
-}
-
 function withSimulation(integration: Integration): Integration {
-  const simulatedAt = state.simulated[integration.id];
-  if (!simulatedAt) return integration;
+  const connectedAt = simulatedAt(integration.id);
+  if (!connectedAt) return integration;
   return {
     ...integration,
     status: 'simulated',
-    connectedAt: simulatedAt,
+    connectedAt,
     statusDetail: 'Demo only. No credentials were requested, and no data is being synced.',
   };
 }
@@ -104,30 +72,27 @@ export const mockApi: OrgMindApi = {
   getDirectory: (signal) => respond(() => directory, signal),
   getGraph: (signal) => respond(() => graph, signal),
 
-  listInsights: (signal) => respond(() => insights.map(withStatus), signal),
+  listInsights: (signal) => respond(currentInsights, signal),
 
   async updateInsightStatus(id, status) {
     await delay(180);
     const insight = insights.find((candidate) => candidate.id === id);
     if (!insight) throw new Error(`Unknown insight: ${id}`);
-    state.insightStatus[id] = status;
-    saveState();
-    return withStatus(insight);
+    setInsightStatus(id, status);
+    return { ...insight, status };
   },
 
   listIntegrations: (signal) => respond(() => integrationCatalog.map(withSimulation), signal),
 
   async connectIntegration(id) {
     await delay(900);
-    state.simulated[id] = new Date().toISOString();
-    saveState();
+    setSimulatedAt(id, new Date().toISOString());
     return { kind: 'updated', integration: withSimulation(findIntegration(id)) };
   },
 
   async disconnectIntegration(id) {
     await delay(400);
-    delete state.simulated[id];
-    saveState();
+    setSimulatedAt(id, undefined);
     return withSimulation(findIntegration(id));
   },
 
@@ -153,8 +118,5 @@ export const mockApi: OrgMindApi = {
     onEvent({ type: 'answer', answer: structuredClone(answer) });
   },
 
-  resetDemoState() {
-    state = { insightStatus: {}, simulated: {} };
-    saveState();
-  },
+  resetDemoState,
 };

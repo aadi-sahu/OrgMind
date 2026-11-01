@@ -7,8 +7,9 @@ TypeScript, Vite, Tailwind CSS, Recharts, React Router, Lucide icons and `react-
 
 You need [Node.js](https://nodejs.org) 20.19+ or 22.12+. It has been tested on Node 26.
 
+From the root of this repository:
+
 ```bash
-cd frontend
 npm install
 npm run dev        # http://localhost:5173
 ```
@@ -50,6 +51,7 @@ src/
 │   ├── data/          The sample company, Kestrel Freight
 │   ├── buildGraph.ts  Derives the graph from the sample entities
 │   ├── reasoner/      Rule-based stand-in for the Reasoning Engine
+│   ├── demoState.ts   Finding and integration changes, kept in this browser
 │   └── mockApi.ts     Demo implementation of OrgMindApi
 ├── components/
 │   ├── ui/            Design system: buttons, tables, menus, dialogs, tabs, toasts
@@ -86,8 +88,9 @@ are camelCase, which Pydantic can produce with `alias_generator=to_camel`.
 Errors should use FastAPI's usual `{ "detail": "message" }` body, which is shown to the user as written.
 
 The assistant endpoint responds with `text/event-stream`. Each message is `data: <json>`, where the JSON is
-one `AssistantEvent`: any number of `step` and `summary_delta` events, followed by one `answer`. Inside answer
-text, `[n]` refers to the source with `n` as its number, and `href` on a source makes it a link.
+one `AssistantEvent`: any number of `step` and `summary_delta` events, followed by one `answer`. A stream that
+closes without an `answer` is shown to the user as an error. Inside answer text, `[n]` refers to the source with
+`n` as its number, and `href` on a source makes it a link.
 
 ## What needs the backend
 

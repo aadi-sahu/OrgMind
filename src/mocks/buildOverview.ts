@@ -41,7 +41,8 @@ function buildFactors(directory: OrgDirectory): HealthFactor[] {
 function buildHealth(directory: OrgDirectory): OrgHealth {
   const factors = buildFactors(directory);
   const score = Math.round(factors.reduce((sum, f) => sum + (f.score * f.weightPct) / 100, 0));
-  const history = [75, 75, 76, 74, 74, 73, 73, 72, 71, 70, 69];
+  // The last four weeks add up to the same change as the factors' weighted deltas (about -3).
+  const history = [75, 75, 76, 74, 74, 73, 71, 69, 69, 68, 67];
   const values = [...history, score];
   const trend = values.map((value, i) => ({ label: weekLabel(values.length - 1 - i), value }));
   return { score, delta: score - values[values.length - 5], trend, factors };

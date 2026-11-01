@@ -29,7 +29,7 @@ const GENERIC_SUGGESTIONS: SuggestionGroup[] = [
 
 function EmptyConversation({ onAsk }: { onAsk: (question: string) => void }) {
   const { data, loading } = useResource((signal) => api.listSuggestedQuestions(signal));
-  const groups = data ?? GENERIC_SUGGESTIONS;
+  const groups = data?.length ? data : GENERIC_SUGGESTIONS;
 
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col justify-center px-4 py-8">
@@ -239,24 +239,31 @@ export default function AssistantPage() {
                 placeholder="Ask about architecture, dependencies, projects or people"
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
+                  // During IME composition, Enter confirms the text instead of sending it.
+                  if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault();
                     ask(draft);
                   }
                 }}
                 className="max-h-40 min-h-6 flex-1 resize-none bg-transparent px-1 py-0.5 text-body text-ink outline-none placeholder:text-ink-3 focus-visible:outline-none"
               />
+              {/* Distinct keys, or React reuses one element and a click on Stop finishes as a submit. */}
               {isBusy ? (
                 <IconButton
+                  key="stop"
                   label="Stop generating"
                   size="sm"
                   className="bg-surface-3 text-ink"
-                  onClick={() => conversationActions.stop()}
+                  onClick={() => {
+                    conversationActions.stop();
+                    textareaRef.current?.focus();
+                  }}
                 >
                   <Square className="size-3 fill-current" aria-hidden />
                 </IconButton>
               ) : (
                 <IconButton
+                  key="send"
                   label="Send question"
                   size="sm"
                   type="submit"

@@ -114,13 +114,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       setActiveIndex((i) => (i - 1 + items.length) % Math.max(items.length, 1));
-    } else if (event.key === 'Enter') {
+    } else if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
       event.preventDefault();
       open(items[activeIndex]);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       onClose();
+    } else if (event.key === 'Tab') {
+      // The input is the only focus stop in this dialog; results are reached with the arrow keys.
+      event.preventDefault();
     }
   };
 

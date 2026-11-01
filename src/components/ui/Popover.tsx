@@ -26,12 +26,18 @@ const GAP = 4;
 const VIEWPORT_MARGIN = 8;
 
 /**
+ * The layout used for measuring. It must be fixed from the start: a block in <body> fills the
+ * page width, which would place every popover without an explicit width at the far left.
+ */
+const UNPLACED: CSSProperties = { position: 'fixed', top: 0, left: 0, visibility: 'hidden' };
+
+/**
  * Floating layer positioned against an anchor. Portalled to <body> so it is never
  * clipped by scroll containers, and flips above the anchor when there is no room below.
  */
 export function Popover({ open, onClose, anchorRef, align = 'start', matchWidth, className, children }: PopoverProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' });
+  const [style, setStyle] = useState<CSSProperties>(UNPLACED);
 
   const place = useCallback(() => {
     const anchor = anchorRef.current;
@@ -39,19 +45,21 @@ export function Popover({ open, onClose, anchorRef, align = 'start', matchWidth,
     if (!anchor || !content) return;
 
     const a = anchor.getBoundingClientRect();
-    const c = content.getBoundingClientRect();
+    // Layout sizes, because getBoundingClientRect would include the opening animation's scale.
+    const width = matchWidth ? Math.max(content.offsetWidth, a.width) : content.offsetWidth;
+    const height = content.offsetHeight;
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
 
     const below = viewportH - a.bottom - GAP - VIEWPORT_MARGIN;
     const above = a.top - GAP - VIEWPORT_MARGIN;
-    const placeAbove = c.height > below && above > below;
+    const placeAbove = height > below && above > below;
 
-    const top = placeAbove ? Math.max(VIEWPORT_MARGIN, a.top - GAP - c.height) : a.bottom + GAP;
+    const top = placeAbove ? Math.max(VIEWPORT_MARGIN, a.top - GAP - height) : a.bottom + GAP;
     const maxHeight = Math.max(120, placeAbove ? above : below);
 
-    const rawLeft = align === 'end' ? a.right - c.width : a.left;
-    const left = Math.min(Math.max(VIEWPORT_MARGIN, rawLeft), Math.max(VIEWPORT_MARGIN, viewportW - c.width - VIEWPORT_MARGIN));
+    const rawLeft = align === 'end' ? a.right - width : a.left;
+    const left = Math.min(Math.max(VIEWPORT_MARGIN, rawLeft), Math.max(VIEWPORT_MARGIN, viewportW - width - VIEWPORT_MARGIN));
 
     setStyle({
       position: 'fixed',
@@ -65,7 +73,7 @@ export function Popover({ open, onClose, anchorRef, align = 'start', matchWidth,
 
   useLayoutEffect(() => {
     if (!open) {
-      setStyle({ visibility: 'hidden' });
+      setStyle(UNPLACED);
       return;
     }
     place();

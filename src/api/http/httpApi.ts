@@ -13,36 +13,55 @@ import type {
 } from '../types';
 import { apiUrl, ApiError, assertOk, request } from './client';
 
+/** The event stream format allows any of these line endings, and sse-starlette uses \r\n. */
+const FRAME_BOUNDARY = /\r\n\r\n|\n\n|\r\r/;
+
+function parseFrame(frame: string, status: number): AssistantEvent | undefined {
+  const data = frame
+    .split(/\r\n|\n|\r/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trim())
+    .join('\n');
+  if (!data || data === '[DONE]') return undefined;
+
+  try {
+    return JSON.parse(data) as AssistantEvent;
+  } catch {
+    throw new ApiError(status, 'The assistant sent a response that could not be read. Try asking again.');
+  }
+}
+
 /**
- * Parses a `text/event-stream` body where every event is `data: <json>\n\n`.
+ * Parses a `text/event-stream` body where every event is `data: <json>` and a blank line.
  * FastAPI can produce this with `StreamingResponse(media_type="text/event-stream")`.
  */
 async function readEventStream(
   body: ReadableStream<Uint8Array>,
+  status: number,
   onEvent: (event: AssistantEvent) => void,
 ): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
 
+  const emit = (frame: string) => {
+    const event = parseFrame(frame, status);
+    if (event) onEvent(event);
+  };
+
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
 
-    let boundary = buffer.indexOf('\n\n');
-    while (boundary !== -1) {
-      const frame = buffer.slice(0, boundary);
-      buffer = buffer.slice(boundary + 2);
-      const data = frame
-        .split('\n')
-        .filter((line) => line.startsWith('data:'))
-        .map((line) => line.slice(5).trim())
-        .join('\n');
-      if (data && data !== '[DONE]') onEvent(JSON.parse(data) as AssistantEvent);
-      boundary = buffer.indexOf('\n\n');
+    for (let match = FRAME_BOUNDARY.exec(buffer); match; match = FRAME_BOUNDARY.exec(buffer)) {
+      emit(buffer.slice(0, match.index));
+      buffer = buffer.slice(match.index + match[0].length);
     }
   }
+
+  // A server may close the stream without the blank line that ends its last event.
+  emit(buffer + decoder.decode());
 }
 
 /** Real backend implementation. See the endpoint table in the README. */
@@ -84,6 +103,6 @@ export const httpApi: OrgMindApi = {
 
     await assertOk(response);
     if (!response.body) throw new ApiError(response.status, 'The assistant returned no stream.');
-    await readEventStream(response.body, onEvent);
+    await readEventStream(response.body, response.status, onEvent);
   },
 };

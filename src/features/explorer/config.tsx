@@ -22,7 +22,8 @@ export interface ExplorerConfig<T> {
   id: (row: T) => string;
   /** Text that the search box looks through. */
   searchText: (row: T, directory: OrgDirectory) => string;
-  columns: Column<T>[];
+  /** Columns that show a name sort by that name, not by the id behind it. */
+  columns: (directory: OrgDirectory) => Column<T>[];
   filters: (directory: OrgDirectory) => FilterDef<T>[];
   defaultSort: { columnId: string; direction: 'asc' | 'desc' };
 }
@@ -30,6 +31,7 @@ export interface ExplorerConfig<T> {
 const teamOptions = (directory: OrgDirectory) => directory.teams.map((t) => ({ value: t.id, label: t.name }));
 const teamName = (directory: OrgDirectory, id: string) => directory.teams.find((t) => t.id === id)?.name ?? '';
 const personName = (directory: OrgDirectory, id: string) => directory.people.find((p) => p.id === id)?.name ?? '';
+const count = <T,>(rows: T[], matches: (row: T) => boolean) => rows.filter(matches).length;
 
 /* Row link text is plain here because the whole row opens the same details. */
 const PrimaryCell = ({ title, subtitle }: { title: string; subtitle?: string }) => (
@@ -44,7 +46,7 @@ export const peopleConfig: ExplorerConfig<Person> = {
   id: (p) => p.id,
   searchText: (p, d) => `${p.name} ${p.role} ${p.location} ${teamName(d, p.teamId)} ${p.expertise.join(' ')}`,
   defaultSort: { columnId: 'name', direction: 'asc' },
-  columns: [
+  columns: (d) => [
     {
       id: 'name',
       header: 'Name',
@@ -57,7 +59,7 @@ export const peopleConfig: ExplorerConfig<Person> = {
         </span>
       ),
     },
-    { id: 'team', header: 'Team', hideBelow: 'sm', sortValue: (p) => p.teamId, cell: (p) => <EntityLink id={p.teamId} /> },
+    { id: 'team', header: 'Team', hideBelow: 'sm', sortValue: (p) => teamName(d, p.teamId), cell: (p) => <EntityLink id={p.teamId} /> },
     { id: 'location', header: 'Location', hideBelow: 'lg', sortValue: (p) => p.location, cell: (p) => p.location },
     {
       id: 'expertise',
@@ -94,31 +96,28 @@ export const peopleConfig: ExplorerConfig<Person> = {
   ],
 };
 
-export function teamsConfig(directory: OrgDirectory): ExplorerConfig<Team> {
-  const count = <T,>(rows: T[], matches: (row: T) => boolean) => rows.filter(matches).length;
-  return {
-    rows: (d) => d.teams,
-    id: (t) => t.id,
-    searchText: (t, d) => `${t.name} ${t.mission} ${personName(d, t.leadId)}`,
-    defaultSort: { columnId: 'name', direction: 'asc' },
-    columns: [
-      { id: 'name', header: 'Team', sortValue: (t) => t.name, className: 'max-w-[440px] max-sm:max-w-[calc(100vw-66px)]', cell: (t) => <PrimaryCell title={t.name} subtitle={t.mission} /> },
-      { id: 'lead', header: 'Lead', hideBelow: 'sm', sortValue: (t) => personName(directory, t.leadId), cell: (t) => <EntityLink id={t.leadId} /> },
-      { id: 'members', header: 'People', align: 'right', hideBelow: 'md', sortValue: (t) => count(directory.people, (p) => p.teamId === t.id), cell: (t) => count(directory.people, (p) => p.teamId === t.id) },
-      { id: 'services', header: 'Services', align: 'right', hideBelow: 'md', sortValue: (t) => count(directory.services, (s) => s.teamId === t.id), cell: (t) => count(directory.services, (s) => s.teamId === t.id) },
-      { id: 'repos', header: 'Repositories', align: 'right', hideBelow: 'lg', sortValue: (t) => count(directory.repositories, (r) => r.teamId === t.id), cell: (t) => count(directory.repositories, (r) => r.teamId === t.id) },
-      { id: 'projects', header: 'Projects', align: 'right', hideBelow: 'lg', sortValue: (t) => count(directory.projects, (p) => p.teamIds.includes(t.id)), cell: (t) => count(directory.projects, (p) => p.teamIds.includes(t.id)) },
-    ],
-    filters: () => [],
-  };
-}
+export const teamsConfig: ExplorerConfig<Team> = {
+  rows: (d) => d.teams,
+  id: (t) => t.id,
+  searchText: (t, d) => `${t.name} ${t.mission} ${personName(d, t.leadId)}`,
+  defaultSort: { columnId: 'name', direction: 'asc' },
+  columns: (d) => [
+    { id: 'name', header: 'Team', sortValue: (t) => t.name, className: 'max-w-[440px] max-sm:max-w-[calc(100vw-66px)]', cell: (t) => <PrimaryCell title={t.name} subtitle={t.mission} /> },
+    { id: 'lead', header: 'Lead', hideBelow: 'sm', sortValue: (t) => personName(d, t.leadId), cell: (t) => <EntityLink id={t.leadId} /> },
+    { id: 'members', header: 'People', align: 'right', hideBelow: 'md', sortValue: (t) => count(d.people, (p) => p.teamId === t.id), cell: (t) => count(d.people, (p) => p.teamId === t.id) },
+    { id: 'services', header: 'Services', align: 'right', hideBelow: 'md', sortValue: (t) => count(d.services, (s) => s.teamId === t.id), cell: (t) => count(d.services, (s) => s.teamId === t.id) },
+    { id: 'repos', header: 'Repositories', align: 'right', hideBelow: 'lg', sortValue: (t) => count(d.repositories, (r) => r.teamId === t.id), cell: (t) => count(d.repositories, (r) => r.teamId === t.id) },
+    { id: 'projects', header: 'Projects', align: 'right', hideBelow: 'lg', sortValue: (t) => count(d.projects, (p) => p.teamIds.includes(t.id)), cell: (t) => count(d.projects, (p) => p.teamIds.includes(t.id)) },
+  ],
+  filters: () => [],
+};
 
 export const projectsConfig: ExplorerConfig<Project> = {
   rows: (d) => d.projects,
   id: (p) => p.id,
   searchText: (p, d) => `${p.name} ${p.description} ${personName(d, p.leadId)}`,
   defaultSort: { columnId: 'target', direction: 'asc' },
-  columns: [
+  columns: (d) => [
     { id: 'name', header: 'Project', sortValue: (p) => p.name, className: 'max-w-[360px] max-sm:max-w-[calc(100vw-190px)]', cell: (p) => <PrimaryCell title={p.name} subtitle={p.description} /> },
     { id: 'status', header: 'Status', sortValue: (p) => p.status, cell: (p) => <ProjectStatusLabel status={p.status} /> },
     {
@@ -135,7 +134,7 @@ export const projectsConfig: ExplorerConfig<Project> = {
         </span>
       ),
     },
-    { id: 'lead', header: 'Lead', hideBelow: 'lg', sortValue: (p) => p.leadId, cell: (p) => <EntityLink id={p.leadId} /> },
+    { id: 'lead', header: 'Lead', hideBelow: 'lg', sortValue: (p) => personName(d, p.leadId), cell: (p) => <EntityLink id={p.leadId} /> },
     { id: 'target', header: 'Target', hideBelow: 'sm', sortValue: (p) => p.targetAt, cell: (p) => <span className="whitespace-nowrap">{formatDate(p.targetAt)}</span> },
   ],
   filters: (d) => [
@@ -159,12 +158,12 @@ export const servicesConfig: ExplorerConfig<Service> = {
   id: (s) => s.id,
   searchText: (s, d) => `${s.name} ${s.description} ${s.runtime} ${teamName(d, s.teamId)}`,
   defaultSort: { columnId: 'tier', direction: 'asc' },
-  columns: [
+  columns: (d) => [
     { id: 'name', header: 'Service', sortValue: (s) => s.name, className: 'max-w-[320px] max-sm:max-w-[calc(100vw-190px)]', cell: (s) => <PrimaryCell title={s.name} subtitle={s.description} /> },
     { id: 'status', header: 'Status', sortValue: (s) => s.status, cell: (s) => <ServiceStatusLabel status={s.status} /> },
     { id: 'tier', header: 'Tier', sortValue: (s) => s.tier, hideBelow: 'sm', cell: (s) => <span className="tabular">Tier {s.tier}</span> },
-    { id: 'team', header: 'Team', hideBelow: 'lg', sortValue: (s) => s.teamId, cell: (s) => <EntityLink id={s.teamId} /> },
-    { id: 'oncall', header: 'On call', hideBelow: 'xl', sortValue: (s) => s.onCallId, cell: (s) => <EntityLink id={s.onCallId} /> },
+    { id: 'team', header: 'Team', hideBelow: 'lg', sortValue: (s) => teamName(d, s.teamId), cell: (s) => <EntityLink id={s.teamId} /> },
+    { id: 'oncall', header: 'On call', hideBelow: 'xl', sortValue: (s) => personName(d, s.onCallId), cell: (s) => <EntityLink id={s.onCallId} /> },
     { id: 'deploys', header: 'Deploys / wk', align: 'right', hideBelow: 'md', sortValue: (s) => s.deploysPerWeek, cell: (s) => s.deploysPerWeek },
     { id: 'p95', header: 'p95 ms', align: 'right', hideBelow: 'lg', sortValue: (s) => s.p95Ms, cell: (s) => s.p95Ms },
     { id: 'errors', header: 'Errors %', align: 'right', hideBelow: 'xl', sortValue: (s) => s.errorRatePct, cell: (s) => s.errorRatePct },
@@ -199,9 +198,9 @@ export const repositoriesConfig: ExplorerConfig<Repository> = {
   id: (r) => r.id,
   searchText: (r, d) => `${r.name} ${r.language} ${r.provider} ${teamName(d, r.teamId)} ${personName(d, r.topContributorId)}`,
   defaultSort: { columnId: 'bus', direction: 'asc' },
-  columns: [
+  columns: (d) => [
     { id: 'name', header: 'Repository', sortValue: (r) => r.name, className: 'max-sm:max-w-[calc(100vw-190px)]', cell: (r) => <PrimaryCell title={r.name} subtitle={`${r.provider} · ${r.language}`} /> },
-    { id: 'team', header: 'Team', hideBelow: 'lg', sortValue: (r) => r.teamId, cell: (r) => <EntityLink id={r.teamId} /> },
+    { id: 'team', header: 'Team', hideBelow: 'lg', sortValue: (r) => teamName(d, r.teamId), cell: (r) => <EntityLink id={r.teamId} /> },
     {
       id: 'top',
       header: 'Top contributor',
@@ -248,7 +247,7 @@ export const decisionsConfig: ExplorerConfig<Decision> = {
   id: (d) => d.id,
   searchText: (d) => `${d.code} ${d.title} ${d.context} ${d.outcome}`,
   defaultSort: { columnId: 'date', direction: 'desc' },
-  columns: [
+  columns: (directory) => [
     {
       id: 'title',
       header: 'Decision',
@@ -257,7 +256,7 @@ export const decisionsConfig: ExplorerConfig<Decision> = {
       cell: (d) => <PrimaryCell title={d.title} subtitle={d.code} />,
     },
     { id: 'status', header: 'Status', sortValue: (d) => d.status, cell: (d) => <DecisionStatusLabel status={d.status} /> },
-    { id: 'author', header: 'Lead author', hideBelow: 'lg', sortValue: (d) => d.authorIds[0], cell: (d) => <EntityLink id={d.authorIds[0]} /> },
+    { id: 'author', header: 'Lead author', hideBelow: 'lg', sortValue: (d) => personName(directory, d.authorIds[0]), cell: (d) => <EntityLink id={d.authorIds[0]} /> },
     { id: 'source', header: 'Source', hideBelow: 'xl', sortValue: (d) => d.source, cell: (d) => d.source },
     { id: 'date', header: 'Decided', hideBelow: 'md', sortValue: (d) => d.decidedAt, cell: (d) => <span className="whitespace-nowrap">{formatDate(d.decidedAt)}</span> },
   ],

@@ -1,3 +1,4 @@
+import type { AnswerBlock } from '@/api/types';
 import { directory } from '../data';
 import {
   blastRadiusAnswer,
@@ -7,6 +8,7 @@ import {
   departureAnswer,
   deployTimeAnswer,
   expertiseAnswer,
+  findingAnswer,
   onboardingAnswer,
   ownershipAnswer,
   personBrief,
@@ -19,7 +21,13 @@ import {
   ungroundedAnswer,
   type Plan,
 } from './answers';
-import { findMentions, firstOfType, type Mention } from './lookup';
+import { findMentions, firstOfType, insightWithTitle, type Mention } from './lookup';
+
+function hasContent(block: AnswerBlock): boolean {
+  if (block.kind === 'table') return block.rows.length > 0;
+  if (block.kind === 'findings' || block.kind === 'recommendations') return block.items.length > 0;
+  return true;
+}
 
 /**
  * A small rule-based stand-in for the Reasoning Engine, used only in demo mode.
@@ -30,6 +38,12 @@ import { findMentions, firstOfType, type Mention } from './lookup';
  * answer it returns a refusal rather than inventing one.
  */
 export function reason(question: string): Plan {
+  const plan = route(question);
+  // Answers are computed, so a heading can end up with nothing under it.
+  return { ...plan, answer: { ...plan.answer, blocks: plan.answer.blocks.filter(hasContent) } };
+}
+
+function route(question: string): Plan {
   const q = question.toLowerCase();
   const mentions = findMentions(question);
   const service = firstOfType(mentions, 'service');
@@ -44,6 +58,10 @@ export function reason(question: string): Plan {
   if (matches(/\b(deploy\w*|pipelines?|ci)\b.*\b(time|slow\w*|long\w*|duration|increas\w*|longer)\b/, /\b(slow\w*|long\w*)\b.*\b(deploy\w*|pipelines?|ci)\b/)) {
     return deployTimeAnswer();
   }
+
+  // Before any intent, so that the words in a finding's title cannot send it to the wrong answer.
+  const finding = insightWithTitle(question);
+  if (finding) return findingAnswer(finding);
 
   if (person && matches(/\b(leav\w*|depart\w*|quit\w*|resign\w*|bus factor|left|hit by|goes away|knowledge loss|retir\w*)\b/)) {
     return departureAnswer(person);

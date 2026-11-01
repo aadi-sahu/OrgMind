@@ -3,8 +3,11 @@ import { createPortal } from 'react-dom';
 import { Outlet, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { IconButton } from '@/components/ui/Button';
+import { useModalBehavior } from '@/components/ui/Overlay';
 import { Skeleton } from '@/components/ui/States';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/cn';
+import { isNavActive, NAV_ITEMS } from '@/lib/navigation';
 import { CommandPalette } from './CommandPalette';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Sidebar } from './Sidebar';
@@ -30,12 +33,53 @@ function PageFallback() {
   );
 }
 
+function MobileNav({ onClose }: { onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalBehavior(panelRef, onClose);
+
+  // Widening the window swaps in the permanent sidebar, which must not leave a hidden focus trap behind.
+  const isDesktop = useMediaQuery('(min-width: 48rem)');
+  useEffect(() => {
+    if (isDesktop) onClose();
+  }, [isDesktop, onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-40 animate-fade-in bg-(--scrim) md:hidden"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation"
+        tabIndex={-1}
+        className="relative h-full w-64 animate-slide-in-left border-r border-line-strong bg-bg outline-none"
+      >
+        <IconButton label="Close navigation" size="sm" className="absolute top-2.5 right-2 z-10" onClick={onClose}>
+          <X className="size-4" aria-hidden />
+        </IconButton>
+        <Sidebar onNavigate={onClose} />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function AppShell() {
   const { pathname } = useLocation();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+
+  const pageLabel = NAV_ITEMS.find((item) => isNavActive(pathname, item.to))?.label;
+  useEffect(() => {
+    document.title = pageLabel ? `${pageLabel} · OrgMind` : 'OrgMind';
+  }, [pageLabel]);
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((value) => {
@@ -65,15 +109,6 @@ export function AppShell() {
     mainRef.current?.scrollTo({ top: 0 });
   }, [section]);
 
-  useEffect(() => {
-    if (!mobileNavOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileNavOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [mobileNavOpen]);
-
   return (
     <div className="flex h-dvh overflow-hidden bg-bg">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-2 focus:px-3 focus:py-1.5 focus:text-ui">
@@ -84,23 +119,7 @@ export function AppShell() {
         <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       </aside>
 
-      {mobileNavOpen &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-40 animate-fade-in bg-(--scrim) md:hidden"
-            onPointerDown={(event) => {
-              if (event.target === event.currentTarget) setMobileNavOpen(false);
-            }}
-          >
-            <div className="relative h-full w-64 animate-slide-in-left border-r border-line-strong bg-bg">
-              <IconButton label="Close navigation" size="sm" className="absolute top-2.5 right-2 z-10" onClick={() => setMobileNavOpen(false)}>
-                <X className="size-4" aria-hidden />
-              </IconButton>
-              <Sidebar onNavigate={() => setMobileNavOpen(false)} />
-            </div>
-          </div>,
-          document.body,
-        )}
+      {mobileNavOpen && <MobileNav onClose={closeMobileNav} />}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenNav={() => setMobileNavOpen(true)} onOpenSearch={() => setSearchOpen(true)} />

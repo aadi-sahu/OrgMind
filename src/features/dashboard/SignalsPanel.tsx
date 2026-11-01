@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { Activity, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { api, type SignalId } from '@/api';
 import { ChartFrame } from '@/components/charts/ChartParts';
 import { TrendChart } from '@/components/charts/TrendChart';
 import { Panel, PanelHeader } from '@/components/ui/Panel';
 import { SegmentedControl, Tabs } from '@/components/ui/Tabs';
-import { ErrorState, Skeleton } from '@/components/ui/States';
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States';
 import { useResource } from '@/hooks/useResource';
 import { cn } from '@/lib/cn';
 
@@ -22,7 +22,7 @@ export function SignalsPanel({ className }: { className?: string }) {
   const [signalId, setSignalId] = useState<SignalId>('deployDuration');
   const [range, setRange] = useState<Range>('26');
 
-  const signal = data?.find((s) => s.id === signalId);
+  const signal = data?.find((s) => s.id === signalId) ?? data?.[0];
   const points = useMemo(() => signal?.points.slice(-Number(range)) ?? [], [signal, range]);
 
   const first = points[0]?.value ?? 0;
@@ -39,16 +39,22 @@ export function SignalsPanel({ className }: { className?: string }) {
       />
       {error ? (
         <ErrorState error={error} onRetry={refetch} />
-      ) : loading || !data || !signal ? (
+      ) : loading ? (
         <div className="px-4 pb-4">
           <Skeleton className="h-9 w-full" />
           <Skeleton className="mt-4 h-[248px] w-full" />
         </div>
+      ) : !data || !signal ? (
+        <EmptyState
+          icon={<Activity className="size-4" aria-hidden />}
+          title="No signals yet"
+          description="Delivery and quality trends appear here once a connected data source has synced."
+        />
       ) : (
         <>
           <Tabs
             label="Signal"
-            value={signalId}
+            value={signal.id}
             onChange={setSignalId}
             items={data.map((s) => ({ value: s.id, label: s.label }))}
             className="px-4"

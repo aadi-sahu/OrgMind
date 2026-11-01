@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { isDemoMode, type EntityType, type OrgDirectory } from '@/api';
 import { EntityGlyph } from '@/components/domain/entity';
@@ -20,13 +19,12 @@ import { EntityDrawer } from './EntityDrawer';
 import { EntityTable } from './EntityTable';
 
 function TableFor({ type, directory }: { type: EntityType; directory: OrgDirectory }) {
-  const teams = useMemo(() => teamsConfig(directory), [directory]);
   // Keyed by type: each table keeps its own sort and search state instead of inheriting another's.
   switch (type) {
     case 'person':
       return <EntityTable key={type} type={type} config={peopleConfig} directory={directory} />;
     case 'team':
-      return <EntityTable key={type} type={type} config={teams} directory={directory} />;
+      return <EntityTable key={type} type={type} config={teamsConfig} directory={directory} />;
     case 'project':
       return <EntityTable key={type} type={type} config={projectsConfig} directory={directory} />;
     case 'service':

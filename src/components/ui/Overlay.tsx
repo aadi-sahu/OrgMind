@@ -8,7 +8,7 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Traps Tab inside the container, closes on Escape and restores focus on unmount. */
-function useModalBehavior(containerRef: React.RefObject<HTMLElement | null>, onClose: () => void) {
+export function useModalBehavior(containerRef: React.RefObject<HTMLElement | null>, onClose: () => void) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 

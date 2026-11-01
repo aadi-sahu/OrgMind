@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { SearchX } from 'lucide-react';
+import { Inbox, SearchX } from 'lucide-react';
 import type { EntityType, OrgDirectory } from '@/api';
 import { Button } from '@/components/ui/Button';
 import { DataTable } from '@/components/ui/DataTable';
@@ -30,6 +30,7 @@ export function EntityTable<T>({ type, config, directory }: EntityTableProps<T>)
 
   const filters = useMemo(() => config.filters(directory), [config, directory]);
   const allRows = useMemo(() => config.rows(directory), [config, directory]);
+  const columns = useMemo(() => config.columns(directory), [config, directory]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -94,22 +95,30 @@ export function EntityTable<T>({ type, config, directory }: EntityTableProps<T>)
         <DataTable
           caption={meta.plural}
           rows={rows}
-          columns={config.columns}
+          columns={columns}
           rowKey={config.id}
           selectedKey={selectedId}
           defaultSort={config.defaultSort}
           onRowClick={(row) => navigate({ pathname: explorerPath(type, config.id(row)), search: params.toString() })}
           empty={
-            <EmptyState
-              icon={<SearchX className="size-4" aria-hidden />}
-              title={`No ${meta.plural.toLowerCase()} match`}
-              description="Try a different search or clear the filters."
-              action={
-                <Button size="sm" onClick={clear}>
-                  Clear filters
-                </Button>
-              }
-            />
+            allRows.length === 0 ? (
+              <EmptyState
+                icon={<Inbox className="size-4" aria-hidden />}
+                title={`No ${meta.plural.toLowerCase()} yet`}
+                description="They appear here once a connected data source has synced."
+              />
+            ) : (
+              <EmptyState
+                icon={<SearchX className="size-4" aria-hidden />}
+                title={`No ${meta.plural.toLowerCase()} match`}
+                description="Try a different search or clear the filters."
+                action={
+                  <Button size="sm" onClick={clear}>
+                    Clear filters
+                  </Button>
+                }
+              />
+            )
           }
         />
       </Panel>

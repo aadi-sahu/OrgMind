@@ -33,6 +33,16 @@ const SORTERS: Record<SortKey, (a: Insight, b: Insight) => number> = {
   confidence: (a, b) => b.confidence - a.confidence,
 };
 
+const CATEGORY_FILTERS: (InsightCategory | typeof ALL)[] = [ALL, ...CATEGORIES];
+const SEVERITY_FILTERS: (Severity | typeof ALL)[] = [ALL, ...SEVERITIES];
+const STATUS_FILTERS: StatusFilter[] = [ACTIVE, ALL, 'open', 'acknowledged', 'resolved', 'dismissed'];
+const SORT_KEYS: SortKey[] = ['severity', 'recent', 'confidence'];
+
+/** A URL can hold anything, so only known values are used. */
+function oneOf<T extends string>(value: string | null, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
 function matchesStatus(insight: Insight, status: StatusFilter): boolean {
   if (status === ALL) return true;
   if (status === ACTIVE) return insight.status === 'open' || insight.status === 'acknowledged';
@@ -78,10 +88,10 @@ export default function IntelligencePage() {
   const { insights, loading, error, retry } = useInsights();
   const [params, setParams] = useSearchParams();
 
-  const category = (params.get('category') ?? ALL) as InsightCategory | typeof ALL;
-  const severity = (params.get('severity') ?? ALL) as Severity | typeof ALL;
-  const status = (params.get('status') ?? ACTIVE) as StatusFilter;
-  const sort = (params.get('sort') ?? 'severity') as SortKey;
+  const category = oneOf(params.get('category'), CATEGORY_FILTERS, ALL);
+  const severity = oneOf(params.get('severity'), SEVERITY_FILTERS, ALL);
+  const status = oneOf(params.get('status'), STATUS_FILTERS, ACTIVE);
+  const sort = oneOf(params.get('sort'), SORT_KEYS, 'severity');
   const [query, setQuery] = useSearchParamInput('q');
   const findingId = params.get('finding');
 
@@ -114,7 +124,7 @@ export default function IntelligencePage() {
     () =>
       beforeCategory
         .filter((insight) => category === ALL || insight.category === category)
-        .sort(SORTERS[sort] ?? SORTERS.severity),
+        .sort(SORTERS[sort]),
     [beforeCategory, category, sort],
   );
 
@@ -184,9 +194,7 @@ export default function IntelligencePage() {
         className="mb-3"
       />
 
-      {category !== ALL && CATEGORY_META[category] && (
-        <p className="mb-3 text-ui text-ink-2">{CATEGORY_META[category].description}.</p>
-      )}
+      {category !== ALL && <p className="mb-3 text-ui text-ink-2">{CATEGORY_META[category].description}.</p>}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <SearchInput

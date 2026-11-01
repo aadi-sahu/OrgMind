@@ -5,7 +5,7 @@ import { isDemoMode } from '@/api';
 import { EntityChip } from '@/components/domain/entity';
 import { SampleTag } from '@/components/ui/Badge';
 import { Panel, PanelHeader } from '@/components/ui/Panel';
-import { Skeleton } from '@/components/ui/States';
+import { EmptyState, Skeleton } from '@/components/ui/States';
 import { cn } from '@/lib/cn';
 import { assistantPath } from '@/lib/entities';
 
@@ -27,7 +27,13 @@ export function HighlightsPanel({ highlights, className }: { highlights?: Highli
         }
         description="What changed in the organization, and why it matters"
       />
-      {highlights ? (
+      {highlights?.length === 0 ? (
+        <EmptyState
+          icon={<Lightbulb className="size-4" aria-hidden />}
+          title="No insights yet"
+          description="They appear here once a connected data source has synced."
+        />
+      ) : highlights ? (
         <ul>
           {highlights.map((highlight) => {
             const tone = TONE[highlight.tone];

@@ -55,7 +55,7 @@ export function GraphSearch({ nodes, onSelect, className }: { nodes: GraphNode[]
           } else if (event.key === 'ArrowUp') {
             event.preventDefault();
             setActiveIndex((i) => Math.max(i - 1, 0));
-          } else if (event.key === 'Enter') {
+          } else if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
             event.preventDefault();
             choose(results[activeIndex]);
           }
